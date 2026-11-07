@@ -4,6 +4,7 @@ export class ApiError extends Error {
   constructor(
     public readonly status: number,
     message: string,
+    public readonly body: Record<string, unknown> = {},
   ) {
     super(message);
   }
@@ -61,7 +62,7 @@ export function setSignedOutHandler(fn: () => void): void {
 
 async function send<T>(path: string, init: RequestInit, token?: string): Promise<T> {
   const headers = new Headers(init.headers);
-  if (init.body && !headers.has("Content-Type")) headers.set("Content-Type", "application/json");
+  if (init.body && !(init.body instanceof FormData) && !headers.has("Content-Type")) headers.set("Content-Type", "application/json");
   if (token) headers.set("Authorization", `Bearer ${token}`);
 
   let response: Response;
@@ -70,8 +71,8 @@ async function send<T>(path: string, init: RequestInit, token?: string): Promise
   } catch {
     throw new ApiError(0, "Cannot reach the server. Check your connection.");
   }
-  const data = (await response.json().catch(() => ({}))) as { error?: string } & T;
-  if (!response.ok) throw new ApiError(response.status, data.error ?? "Something went wrong.");
+  const data = (await response.json().catch(() => ({}))) as { error?: string; code?: string } & T;
+  if (!response.ok) throw new ApiError(response.status, data.error ?? "Something went wrong.", data as Record<string, unknown>);
   return data;
 }
 
@@ -137,3 +138,31 @@ export async function signOut(): Promise<void> {
 export async function fetchMe(): Promise<User> {
   return (await api<{ user: User }>("/auth/me")).user;
 }
+
+export const post = <T>(path: string, body: unknown = {}) => api<T>(path, { method: "POST", body: JSON.stringify(body) });
+export const put = <T>(path: string, body: unknown = {}) => api<T>(path, { method: "PUT", body: JSON.stringify(body) });
+export const patch = <T>(path: string, body: unknown = {}) => api<T>(path, { method: "PATCH", body: JSON.stringify(body) });
+
+/** Download a protected file (the Authorization header cannot be sent by a plain link). */
+export async function download(path: string, filename: string): Promise<void> {
+  let session = loadSession();
+  const doFetch = () => fetch(`${API_URL}${path}`, { headers: { Authorization: `Bearer ${session?.access_token ?? ""}` } });
+  let res = await doFetch();
+  if (res.status === 401 && (session = await refreshSession())) res = await doFetch();
+  if (!res.ok) throw new ApiError(res.status, "The download failed.");
+  const url = URL.createObjectURL(await res.blob());
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 10_000);
+}
+
+/** Unauthenticated request used by the read-only projector link (`?t=` token). */
+export async function publicGet<T>(path: string): Promise<T> {
+  return send<T>(path, { method: "GET" });
+}
+
+export const apiUrl = API_URL;

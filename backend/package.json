@@ -10,7 +10,9 @@
     "start": "node dist/server.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
-    "create-admin": "tsx src/scripts/createAdmin.ts"
+    "create-admin": "tsx src/scripts/createAdmin.ts",
+    "test:db": "TEST_PG=1 vitest run",
+    "e2e:server": "tsx e2e/server.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.4",
