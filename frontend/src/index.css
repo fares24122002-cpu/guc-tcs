@@ -1,0 +1,22 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+body {
+  @apply bg-ink-950 font-sans text-white antialiased;
+  background-image:
+    radial-gradient(ellipse at 80% -10%, rgba(201, 161, 63, 0.14), transparent 50%),
+    radial-gradient(ellipse at 10% 110%, rgba(24, 34, 63, 0.9), transparent 55%);
+  min-height: 100vh;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
