@@ -77,7 +77,12 @@ export class SupabaseAuthGateway implements AuthGateway {
 
   async signIn(email: string, password: string): Promise<SignedIn | null> {
     const { data, error } = await this.anon.auth.signInWithPassword({ email, password });
-    if (error) return null;
+    if (error) {
+      // Diagnostic for operators only (server logs). Never includes the password; the client still
+      // receives one generic message so usernames cannot be probed.
+      console.warn(`signIn failed: status=${error.status ?? "n/a"} code=${error.code ?? "n/a"} message=${error.message} email=${email}`);
+      return null;
+    }
     return this.toSigned(data);
   }
 

@@ -46,7 +46,10 @@ export function authRouter(env: Env, deps: Deps): Router {
       if (!result) throw new HttpError(401, BAD_CREDENTIALS);
 
       const profile = await deps.store.getById(result.userId);
-      if (!profile) throw new HttpError(401, BAD_CREDENTIALS);
+      if (!profile) {
+        console.warn(`login: credentials valid but no profile row for user ${result.userId}`);
+        throw new HttpError(401, BAD_CREDENTIALS);
+      }
       if (!profile.is_active) {
         await deps.auth.signOut(result.session.access_token);
         throw new HttpError(403, "This account is deactivated. Contact an administrator.");
