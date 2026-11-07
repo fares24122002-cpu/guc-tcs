@@ -9,7 +9,10 @@ database/       Supabase PostgreSQL migrations + tests
 documentation/  Setup guide and design decisions
 ```
 
-## Quick start
+## Deploying
+Everything can be done online from your browser: see `documentation/DEPLOYMENT.md` (Supabase, Render, Vercel).
+
+## Local development (optional)
 See `documentation/SUPABASE_SETUP.md`, then:
 
 ```bash

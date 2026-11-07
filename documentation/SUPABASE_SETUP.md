@@ -1,4 +1,6 @@
-# Supabase setup (Phase 1)
+# Supabase setup (for local development)
+
+> Deploying online? Use `DEPLOYMENT.md` instead. It covers Supabase and the hosts, and creates the admin without a terminal.
 
 Do these once. They need your own Supabase account, so they cannot be done for you.
 
