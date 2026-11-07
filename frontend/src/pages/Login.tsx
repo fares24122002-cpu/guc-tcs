@@ -26,7 +26,7 @@ export default function Login({ onSignedIn, notice }: { onSignedIn: (u: User) =>
 
   return (
     <main className="mx-auto flex min-h-screen max-w-sm flex-col items-center justify-center px-5">
-      <Logo size="h-24 w-24" />
+      <Logo size="h-24 w-24" imgClass="h-32 w-auto max-w-full" />
       <h1 className="mt-6 font-display text-3xl font-bold tracking-wide">GUC TCS</h1>
       <p className="mt-1 text-xs uppercase tracking-[0.3em] text-gold-400">15th Anniversary</p>
       <form onSubmit={submit} className="mt-10 w-full space-y-4">

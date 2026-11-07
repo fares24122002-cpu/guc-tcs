@@ -37,7 +37,7 @@ export function Shell() {
     <div className="mx-auto min-h-screen max-w-6xl px-4 pb-16 sm:px-6">
       <header className="flex items-center justify-between gap-3 py-4">
         <div className="flex items-center gap-3">
-          <Logo />
+          <Logo imgClass="h-11 w-auto max-w-[7rem]" />
           <div>
             <p className="font-display text-lg font-bold leading-tight">GUC TCS</p>
             <p className="text-[10px] uppercase tracking-[0.25em] text-gold-400">15th Anniversary</p>

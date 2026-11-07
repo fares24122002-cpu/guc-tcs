@@ -167,9 +167,8 @@ function Projector({ token, admin }: { token: string; admin: boolean }) {
       {phase === "revealed" && state?.winners && <Reveal winners={state.winners} count={state.winner_count} fanfare={justRevealed.current} muted={muted} />}
       {(phase === "idle" || phase === "none") && (
         <div className="flex min-h-screen flex-col items-center justify-center px-6 text-center">
-          <Logo size="h-56 w-56 sm:h-72 sm:w-72" />
-          <h1 className="mt-8 font-display text-5xl font-bold tracking-wide sm:text-7xl">GUC TCS</h1>
-          <p className="mt-3 text-lg uppercase tracking-[0.4em] text-gold-400 sm:text-2xl">15th Anniversary Giveaway</p>
+          <Logo size="h-56 w-56 sm:h-72 sm:w-72" imgClass="h-56 w-auto max-w-[90vw] sm:h-80" />
+          <h1 className="mt-8 font-display text-5xl font-bold uppercase tracking-[0.3em] text-gold-300 sm:text-7xl">The Giveaway</h1>
           {sub && <p className="mt-6 text-lg text-white/60">{sub}</p>}
           {admin ? (
             <button onClick={shuffle} disabled={shuffling} className="mt-12 rounded-full bg-gold-500 px-16 py-6 font-display text-4xl font-bold tracking-[0.2em] text-ink-950 shadow-[0_0_60px_rgba(201,161,63,0.5)] transition enabled:hover:scale-105 enabled:hover:bg-gold-400 disabled:opacity-60 sm:text-5xl">

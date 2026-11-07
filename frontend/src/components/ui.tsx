@@ -1,9 +1,9 @@
 import { useEffect, useState, type ButtonHTMLAttributes, type ReactNode } from "react";
 
-export function Logo({ size = "h-12 w-12" }: { size?: string }) {
+export function Logo({ size = "h-12 w-12", imgClass = "h-12 w-auto" }: { size?: string; imgClass?: string }) {
   // Drop the official file at frontend/public/logo.png (or .svg) and it replaces the placeholder automatically.
   const [ok, setOk] = useState(true);
-  if (ok) return <img src="/logo.png" alt="GUC TCS" className={`${size} object-contain`} onError={() => setOk(false)} />;
+  if (ok) return <img src="/logo.png" alt="GUC TCS" className={`${imgClass} object-contain`} onError={() => setOk(false)} />;
   return (
     <div className={`${size} flex shrink-0 items-center justify-center rounded-full border border-gold-500/60 text-[9px] uppercase tracking-widest text-gold-400`}>
       Logo
