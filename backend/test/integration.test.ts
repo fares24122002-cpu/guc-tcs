@@ -287,6 +287,9 @@ describe.skipIf(!pgConfigured)("giveaway system against a real PostgreSQL databa
 
     it("excludes earlier winners from a later draw and unlock requires explicit confirmation", async () => {
       expect((await post(admin, "/api/draws/unlock", {})).status).toBe(400);
+      // Merge the same-name registrations so an earlier winner cannot win again under a second registration.
+      const pending = (await get(admin, "/api/duplicates?status=pending")).body.items;
+      for (const item of pending) await post(admin, `/api/duplicates/${item.id}/resolve`, { decision: "same" }).expect(200);
       await post(admin, "/api/draws/unlock", { confirm: true }).then((r) => expect(r.status).toBe(200));
       await request(app).put("/api/draws/settings").set("Authorization", `Bearer ${admin}`).send({ draw_type: "global", winner_count: 5 }).expect(200);
       await post(admin, "/api/presentation/shuffle").expect(200);
