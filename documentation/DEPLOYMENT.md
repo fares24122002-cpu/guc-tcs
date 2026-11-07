@@ -61,7 +61,7 @@ The API runs as a Vercel serverless function, so it needs its own Vercel project
 | `SUPABASE_SERVICE_ROLE_KEY` | secret / service_role key |
 | `CORS_ORIGINS` | `https://placeholder.example.com` (replace in step D) |
 | `SUPABASE_PHOTO_BUCKET` | `participant-photos` |
-| `STAFF_EMAIL_DOMAIN` | `staff.guc-tcs.test` |
+| `STAFF_EMAIL_DOMAIN` | The domain of the admin email from A5 (the part after the `@`). It must match exactly. |
 
    Do **not** set `PORT`.
 4. Deploy. Then open `https://<api-project>.vercel.app/api/health`. You should see `{"ok":true,...}`. Copy this address.
@@ -95,7 +95,7 @@ The API runs as a Vercel serverless function, so it needs its own Vercel project
 
 ## D. Connect them
 
-1. Vercel → the **API** project (`guc-tcs-api`) → Settings → Environment Variables → set `CORS_ORIGINS` to your website address, with `https://` and **no trailing slash** (for example `https://guc-tcs.vercel.app`). Then **redeploy** the API project (Deployments → ⋯ → Redeploy), because changes only apply to new deployments.
+1. Vercel → the **API** project → Settings → Environment Variables → set `CORS_ORIGINS` to your website address, with `https://` and **no trailing slash** (for example `https://guc-tcs.vercel.app`). Then **redeploy** the API project (Deployments → ⋯ → Redeploy), because changes only apply to new deployments.
 2. If you later add a custom domain, add it too, comma-separated.
 
 ---
@@ -129,3 +129,11 @@ Push to GitHub and both Vercel projects redeploy automatically. New phases that 
 - **Pausing:** free Supabase projects pause after about a week without activity. Open the dashboard and make sure the project is active the day before the event, and use the app once.
 - **Storage:** the free plan includes about 1 GB of file storage. 750 photos at about 500 KB each is roughly 375 MB.
 - **Backups:** the free plan has no automatic backups. Export registrations (Phase 11) at the end of each day.
+
+---
+
+## Lessons from the first deployment
+- Every variable listed in step B must exist in the **API** project, or the API crashes at startup. The log names the missing one (Vercel → project → Logs).
+- Changing an environment variable only takes effect after a **redeploy**.
+- `STAFF_EMAIL_DOMAIN` must equal the domain of the admin's email in Supabase, or sign-in says "Incorrect username or password".
+- `CORS_ORIGINS` belongs only to the API project. The website project needs only `VITE_API_URL`.
