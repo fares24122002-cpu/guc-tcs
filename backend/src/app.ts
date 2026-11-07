@@ -13,7 +13,14 @@ import type { Deps } from "./services/ports.js";
 
 export function createApp(env: Env, deps: Deps): Express {
   const app = express();
-  const logger = pino({ level: env.NODE_ENV === "test" ? "silent" : "info" });
+  const logger = pino({
+    level: env.NODE_ENV === "test" ? "silent" : "info",
+    // Never write credentials or tokens to logs.
+    redact: {
+      paths: ["req.headers.authorization", "req.headers.cookie", 'res.headers["set-cookie"]'],
+      censor: "[redacted]",
+    },
+  });
 
   // Render sits behind a proxy; needed for correct client IPs and HTTPS detection.
   app.set("trust proxy", 1);

@@ -49,3 +49,21 @@ describe("API baseline", () => {
     expect(res.body.error).toBeDefined();
   });
 });
+
+describe("logging", () => {
+  it("redacts the Authorization header from request logs", async () => {
+    const { Writable } = await import("node:stream");
+    const { pino } = await import("pino");
+    const { pinoHttp } = await import("pino-http");
+    const express = (await import("express")).default;
+    let output = "";
+    const sink = new Writable({ write(chunk, _e, cb) { output += chunk.toString(); cb(); } });
+    const logger = pino({ redact: { paths: ["req.headers.authorization"], censor: "[redacted]" } }, sink);
+    const probe = express();
+    probe.use(pinoHttp({ logger }));
+    probe.get("/x", (_req, res) => res.json({}));
+    await request(probe).get("/x").set("Authorization", "Bearer super-secret-token");
+    expect(output).toContain("[redacted]");
+    expect(output).not.toContain("super-secret-token");
+  });
+});

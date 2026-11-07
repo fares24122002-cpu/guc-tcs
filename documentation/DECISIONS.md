@@ -5,7 +5,7 @@
 | 1 | Built from scratch; the earlier MongoDB/Cloudinary MVP is not reused. | Confirmed |
 | 2 | Photos are kept until the global draw is finished, then cleaned up with admin confirmation. This resolves the conflict between daily cleanup and a global draw. | Default, awaiting confirmation |
 | 3 | Past winners are excluded from later draws, with an admin toggle. | Default, awaiting confirmation |
-| 4 | Use a paid Render instance during the 3 event days so the API never sleeps. | Recommended |
+| 4 | Everything runs on free plans with no card: Supabase, GitHub, and Vercel for both the website and the API (serverless). Render is not used because it requires a card. | Confirmed by owner |
 | 5 | Logo is a placeholder until the official GUC TCS file is provided. | Open |
 | 6 | The browser never talks to Supabase directly. All access goes through the backend API. | Confirmed (architecture) |
 | 7 | Rate limiting is per authenticated user, because staff share venue Wi-Fi. | Done in Phase 2 |

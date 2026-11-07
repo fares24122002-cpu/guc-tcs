@@ -10,7 +10,7 @@ documentation/  Setup guide and design decisions
 ```
 
 ## Deploying
-Everything can be done online from your browser: see `documentation/DEPLOYMENT.md` (Supabase, Render, Vercel).
+Everything can be done online from your browser: see `documentation/DEPLOYMENT.md` (Supabase and Vercel, all free).
 
 ## Local development (optional)
 See `documentation/SUPABASE_SETUP.md`, then:
