@@ -61,6 +61,16 @@ begin
   perform pg_temp.check((select count(*) = 501 from public.registrations), 'retry created no extra row');
 end $body$;
 
+-- lookup by retry key
+select pg_temp.check((select public.api_registration_by_key(jsonb_build_object('key', gen_random_uuid())) is null), 'unknown retry key finds nothing');
+do $body$
+declare c record; k uuid := gen_random_uuid(); r jsonb;
+begin
+  select * into c from ctx;
+  r := public.api_create_registration(jsonb_build_object('idempotency_key', k, 'full_name', 'Key Lookup', 'photo_path','p/k.jpg','event_day_id',c.d1,'registered_by',c.s1,'consent',true));
+  perform pg_temp.check((public.api_registration_by_key(jsonb_build_object('key', k)))->>'id' = r->>'id', 'retry key finds the saved registration');
+end $body$;
+
 -- name check + search escaping
 select pg_temp.reg('Mona Hassan', (select d1 from ctx), (select s1 from ctx));
 select pg_temp.reg('mona   HASSAN', (select d2 from ctx), (select s2 from ctx));
@@ -161,7 +171,7 @@ begin
   perform pg_temp.check((select (public.api_get_settings())->>'locked' = 'true'), 'settings lock after the draw');
   perform pg_temp.expect_error(format($$select public.api_update_settings(jsonb_build_object('admin','%s','winner_count',3))$$, c.admin), 'settings_locked');
   perform pg_temp.check((select (e->>'draw_id') is not null from jsonb_array_elements(public.api_draw_scope_stats('{}')) e where e->>'key' = 'day-1'), 'scope stats show the day 1 draw');
-  perform pg_temp.check((select (e->>'eligible_people')::int = 250 from jsonb_array_elements(public.api_draw_scope_stats('{}')) e where e->>'key' = 'day-1'), 'after the draw, day 1 has 255 people minus 5 winners = 250 eligible');
+  perform pg_temp.check((select (e->>'eligible_people')::int = 251 from jsonb_array_elements(public.api_draw_scope_stats('{}')) e where e->>'key' = 'day-1'), 'after the draw, day 1 has 256 people minus 5 winners = 251 eligible');
   -- presentation: idle -> countdown -> revealed
   perform pg_temp.check((public.api_get_draw(jsonb_build_object('draw_id', draw))->'session'->>'state') = 'idle', 'presentation starts idle');
   perform pg_temp.expect_error(format($$select public.api_presentation_action(jsonb_build_object('action','start','draw_id','%s','admin','%s','at',now()))$$, draw, c.s1), 'admin_required');
@@ -221,7 +231,7 @@ begin
   res := public.api_mark_photos_deleted(jsonb_build_object('admin', c.admin, 'ids', ids || to_jsonb(winner_regs)));
   perform pg_temp.check((res->>'updated')::int = jsonb_array_length(cands), 'marked only non-winner photos deleted');
   perform pg_temp.check((select count(*) = 5 from public.registrations where id = any (winner_regs) and photo_path is not null), 'winner photos untouched');
-  perform pg_temp.check((select count(*) = 506 from public.registrations), 'all 506 registration rows remain after cleanup');
+  perform pg_temp.check((select count(*) = 507 from public.registrations), 'all 507 registration rows remain after cleanup');
   perform pg_temp.check((select count(*) = 0 from jsonb_array_elements(public.api_cleanup_candidates(jsonb_build_object('event_day_id', c.d1, 'limit', 500)))), 'no candidates left for day 1');
   perform public.api_log_cleanup(jsonb_build_object('admin', c.admin, 'event_day_id', c.d1, 'deleted', res->'updated'));
   perform pg_temp.check((select count(*) = 1 from public.activity_logs where action = 'cleanup.executed'), 'cleanup is logged');

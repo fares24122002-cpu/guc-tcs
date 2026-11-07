@@ -12,7 +12,7 @@ export interface BootstrapOptions {
  * Creates an administrator. Only reachable from the command line (never over HTTP).
  * Rolls back the login if the profile cannot be saved.
  */
-export async function bootstrapAdmin(deps: Deps, opts: BootstrapOptions): Promise<Profile> {
+export async function bootstrapAdmin(deps: Pick<Deps, "auth" | "store">, opts: BootstrapOptions): Promise<Profile> {
   const username = opts.username.trim().toLowerCase();
   if (!/^[a-z0-9._-]{3,32}$/.test(username)) {
     throw new HttpError(400, "Username must be 3-32 characters: letters, numbers, dot, dash or underscore.");

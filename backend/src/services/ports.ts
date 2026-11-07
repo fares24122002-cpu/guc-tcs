@@ -46,6 +46,8 @@ export interface AuthGateway {
 export interface Deps {
   auth: AuthGateway;
   store: ProfileStore;
+  repo: import("./repo.js").Repo;
+  storage: import("./storage.js").PhotoStorage;
 }
 
 export function staffEmail(username: string, domain: string): string {

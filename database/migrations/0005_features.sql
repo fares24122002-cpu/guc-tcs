@@ -109,6 +109,11 @@ begin
         where (c.registration_a = v_row.id or c.registration_b = v_row.id) and c.status = 'pending'));
 end $$;
 
+-- Look up a registration by its retry key, so a retried request returns the saved record.
+create function public.api_registration_by_key(p jsonb) returns jsonb language sql stable as $$
+  select public.reg_brief(r.id) from public.registrations r where r.idempotency_key = (p->>'key')::uuid
+$$;
+
 create function public.api_check_name(p jsonb) returns jsonb language sql stable as $$
   select jsonb_build_object(
     'total', coalesce(sum(x.c), 0),

@@ -9,6 +9,14 @@ import { errorHandler, notFound } from "./middleware/errorHandler.js";
 import { healthRouter } from "./routes/health.js";
 import { authRouter } from "./routes/auth.js";
 import { staffRouter } from "./routes/staff.js";
+import { eventDaysRouter } from "./routes/eventDays.js";
+import { registrationsRouter } from "./routes/registrations.js";
+import { duplicatesRouter } from "./routes/duplicates.js";
+import { adminRouter } from "./routes/admin.js";
+import { drawsRouter } from "./routes/draws.js";
+import { presentationRouter } from "./routes/presentation.js";
+import { cleanupRouter } from "./routes/cleanup.js";
+import { exportsRouter } from "./routes/exports.js";
 import type { Deps } from "./services/ports.js";
 
 export function createApp(env: Env, deps: Deps): Express {
@@ -59,6 +67,14 @@ export function createApp(env: Env, deps: Deps): Express {
   app.use("/api", healthRouter());
   app.use("/api/auth", authRouter(env, deps));
   app.use("/api/staff", staffRouter(env, deps));
+  app.use("/api/event-days", eventDaysRouter(env, deps));
+  app.use("/api/registrations", registrationsRouter(env, deps));
+  app.use("/api/duplicates", duplicatesRouter(env, deps));
+  app.use("/api/admin", adminRouter(env, deps));
+  app.use("/api/draws", drawsRouter(env, deps));
+  app.use("/api/presentation", presentationRouter(env, deps));
+  app.use("/api/cleanup", cleanupRouter(env, deps));
+  app.use("/api/exports", exportsRouter(env, deps));
 
   app.use(notFound);
   app.use(errorHandler);
