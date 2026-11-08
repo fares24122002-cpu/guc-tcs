@@ -48,6 +48,8 @@ export interface Deps {
   store: ProfileStore;
   repo: import("./repo.js").Repo;
   storage: import("./storage.js").PhotoStorage;
+  /** Private bucket for the projector sounds. */
+  sounds: import("./storage.js").PhotoStorage;
 }
 
 export function staffEmail(username: string, domain: string): string {

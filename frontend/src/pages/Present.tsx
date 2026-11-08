@@ -104,20 +104,68 @@ function Projector({ token, admin }: { token: string; admin: boolean }) {
       .catch(() => undefined);
   }, [state?.phase, fetchJson, photos.length, state]);
 
+  // Custom sounds uploaded by the admin (fall back to the built-in synthesized ones when absent).
+  const [custom, setCustom] = useState<{ countdown: string | null; winners: string | null }>({ countdown: null, winners: null });
+  const countdownAudio = useRef<HTMLAudioElement | null>(null);
+  const winnersAudio = useRef<HTMLAudioElement | null>(null);
+  useEffect(() => {
+    let alive = true;
+    const load = () =>
+      fetchJson<{ sounds: { countdown: { url: string | null } | null; winners: { url: string | null } | null } }>("/sounds")
+        .then((r) => alive && setCustom({ countdown: r.sounds.countdown?.url ?? null, winners: r.sounds.winners?.url ?? null }))
+        .catch(() => undefined);
+    void load();
+    const id = setInterval(load, 20 * 60 * 1000); // signed links last 6 hours; refresh well before that
+    return () => { alive = false; clearInterval(id); };
+  }, [fetchJson]);
+  useEffect(() => {
+    const make = (url: string | null, prev: HTMLAudioElement | null) => {
+      if (prev && url && prev.src === url) return prev;
+      prev?.pause();
+      if (!url) return null;
+      const a = new Audio(url);
+      a.preload = "auto";
+      return a;
+    };
+    countdownAudio.current = make(custom.countdown, countdownAudio.current);
+    winnersAudio.current = make(custom.winners, winnersAudio.current);
+  }, [custom]);
+  const stopAll = () => { for (const a of [countdownAudio.current, winnersAudio.current]) { a?.pause(); } };
+
   // Sounds on phase changes and each second.
   useEffect(() => {
     const phase = state?.phase ?? "";
-    if (prevPhase.current && prevPhase.current !== phase && !muted) {
-      if (phase === "countdown") sounds.start();
-      if (phase === "revealed" && prevPhase.current === "countdown") sounds.reveal();
+    const prev = prevPhase.current;
+    const cd = countdownAudio.current;
+    const win = winnersAudio.current;
+    if (muted) {
+      stopAll();
+    } else {
+      if (phase === "countdown") {
+        if (cd) {
+          // Start (or resume after a reload) in step with the server clock.
+          if (cd.paused) {
+            const elapsed = Math.max(0, Math.min(14.5, (state?.countdown_seconds ?? 15) - remainingMs / 1000));
+            try { cd.currentTime = prev === "countdown" || !prev ? elapsed : 0; } catch { /* not seekable yet */ }
+            void cd.play().catch(() => undefined);
+          }
+        } else if (prev && prev !== phase) sounds.start();
+      } else if (cd && !cd.paused) {
+        cd.pause();
+      }
+      if (phase === "revealed" && prev === "countdown") {
+        if (win) { win.currentTime = 0; void win.play().catch(() => undefined); } else sounds.reveal();
+      }
+      if (phase !== "revealed") win?.pause();
     }
-    justRevealed.current = phase === "revealed" && prevPhase.current === "countdown";
+    justRevealed.current = phase === "revealed" && prev === "countdown";
     if (phase !== "countdown") lastTick.current = -1;
     prevPhase.current = phase;
-  }, [state?.phase, muted]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state?.phase, muted, custom]);
   useEffect(() => {
     if (state?.phase === "countdown" && count !== lastTick.current) {
-      if (lastTick.current !== -1 && !muted && count > 0) sounds.tick(count <= 3);
+      if (lastTick.current !== -1 && !muted && count > 0 && !countdownAudio.current) sounds.tick(count <= 3);
       lastTick.current = count;
     }
   }, [count, state?.phase, muted]);
@@ -164,7 +212,7 @@ function Projector({ token, admin }: { token: string; admin: boolean }) {
   return (
     <main className="relative min-h-screen overflow-hidden bg-ink-950 text-white" style={{ cursor: phase === "idle" || phase === "none" ? "default" : "none" }}>
       {phase === "countdown" && <ShuffleStage photos={photos} count={count} />}
-      {phase === "revealed" && state?.winners && <Reveal winners={state.winners} count={state.winner_count} fanfare={justRevealed.current} muted={muted} />}
+      {phase === "revealed" && state?.winners && <Reveal winners={state.winners} count={state.winner_count} fanfare={justRevealed.current} muted={muted || Boolean(custom.winners)} />}
       {(phase === "idle" || phase === "none") && (
         <div className="flex min-h-screen flex-col items-center justify-center px-6 text-center">
           <Logo size="h-56 w-56 sm:h-72 sm:w-72" imgClass="h-56 w-auto max-w-[90vw] sm:h-80" />

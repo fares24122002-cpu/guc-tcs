@@ -16,6 +16,7 @@ import { adminRouter } from "./routes/admin.js";
 import { drawsRouter } from "./routes/draws.js";
 import { presentationRouter } from "./routes/presentation.js";
 import { cleanupRouter } from "./routes/cleanup.js";
+import { soundsRouter } from "./routes/sounds.js";
 import { exportsRouter } from "./routes/exports.js";
 import type { Deps } from "./services/ports.js";
 
@@ -75,6 +76,7 @@ export function createApp(env: Env, deps: Deps): Express {
   app.use("/api/presentation", presentationRouter(env, deps));
   app.use("/api/cleanup", cleanupRouter(env, deps));
   app.use("/api/exports", exportsRouter(env, deps));
+  app.use("/api/sounds", soundsRouter(env, deps));
 
   app.use(notFound);
   app.use(errorHandler);

@@ -32,7 +32,7 @@ for (const [u, role] of [["boss", "admin"], ["anna", "staff"]] as const) {
 }
 await db.pool.query("update public.event_days set registration_open = true");
 
-const app = createApp(env, { auth, store, repo: new Repo(pgRpc(db.pool)), storage });
+const app = createApp(env, { auth, store, repo: new Repo(pgRpc(db.pool)), storage, sounds: storage });
 const server = createServer((req, res) => {
   const m = /^\/files\/(.+)$/.exec(req.url ?? "");
   if (m) {

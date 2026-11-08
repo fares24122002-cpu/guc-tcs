@@ -156,6 +156,11 @@ export class Repo {
   }
   shuffleSample(limit: number) { return this.call<{ registration_id: string; photo_path: string }[]>("api_shuffle_sample", { limit }); }
 
+  // sounds
+  getSounds() { return this.call<{ kind: "countdown" | "winners"; path: string; name: string; content_type: string; size_bytes: number; updated_at: string }[]>("api_get_sounds"); }
+  setSound(admin: string, p: { kind: string; path: string; original_name: string; content_type: string; size_bytes: number }) { return this.call<{ previous_path: string | null }>("api_set_sound", { admin, ...p }); }
+  clearSound(admin: string, kind: string) { return this.call<{ previous_path: string | null }>("api_clear_sound", { admin, kind }); }
+
   // cleanup
   cleanupPreview(eventDayId?: string) { return this.call<Row>("api_cleanup_preview", { event_day_id: eventDayId ?? "" }); }
   cleanupCandidates(eventDayId: string, limit = 500) { return this.call<{ id: string; photo_path: string }[]>("api_cleanup_candidates", { event_day_id: eventDayId, limit }); }

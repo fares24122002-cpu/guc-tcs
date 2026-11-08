@@ -133,7 +133,7 @@ export function makeWorld(): World {
   const auth = new FakeAuth();
   const store = new FakeStore();
   return {
-    deps: { auth, store, repo: noDb, storage: new MemoryStorage() },
+    deps: { auth, store, repo: noDb, storage: new MemoryStorage(), sounds: new MemoryStorage() },
     auth,
     store,
     async seed(username, password, role, active = true) {

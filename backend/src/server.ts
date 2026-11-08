@@ -12,6 +12,7 @@ const app = createApp(env, {
   store: new SupabaseProfileStore(admin),
   repo: new Repo(supabaseRpc(admin)),
   storage: new SupabasePhotoStorage(admin, env.SUPABASE_PHOTO_BUCKET),
+  sounds: new SupabasePhotoStorage(admin, "giveaway-sounds"),
 });
 
 const server = app.listen(env.PORT, () => {

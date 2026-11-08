@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { api, post, put } from "../lib/api";
 import { errorMessage, useLoad } from "../lib/hooks";
+import { SoundsCard } from "../components/SoundsCard";
 import { Alert, Badge, Btn, Card, Field, inputCls, Loading, Modal, PageTitle, Stat } from "../components/ui";
 
 interface Settings { draw_type: "daily" | "global"; event_day_id: string | null; day_number: number | null; winner_count: number; exclude_previous_winners: boolean; acknowledge_pending_duplicates: boolean; muted: boolean; active_draw_id: string | null; locked: boolean }
@@ -103,6 +104,8 @@ export default function Giveaway() {
           )}
         </div>
       </div>
+
+      <div className="mt-5"><SoundsCard /></div>
 
       <Modal open={unlocking} onClose={() => setUnlocking(false)} title="Unlock the giveaway?">
         <p className="mb-4 text-sm text-white/70">The projector will go back to the start screen for the next draw. Previous winners stay recorded.</p>

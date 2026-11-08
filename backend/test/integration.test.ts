@@ -25,6 +25,7 @@ describe.skipIf(!pgConfigured)("giveaway system against a real PostgreSQL databa
   let drop: () => Promise<void>;
   let app: Express;
   let storage: MemoryStorage;
+  let sounds: MemoryStorage;
   let auth: PgAuth;
   let admin: string, staff: string, staff2: string;
   let adminId: string;
@@ -57,8 +58,9 @@ describe.skipIf(!pgConfigured)("giveaway system against a real PostgreSQL databa
     pool = db.pool;
     drop = db.drop;
     storage = new MemoryStorage();
+    sounds = new MemoryStorage();
     auth = new PgAuth(pool);
-    app = createApp(env, { auth, store: new PgProfileStore(pool), repo: new Repo(pgRpc(pool)), storage });
+    app = createApp(env, { auth, store: new PgProfileStore(pool), repo: new Repo(pgRpc(pool)), storage, sounds });
     const a = await token("boss", "admin");
     admin = a.t;
     adminId = a.id;
@@ -297,6 +299,52 @@ describe.skipIf(!pgConfigured)("giveaway system against a real PostgreSQL databa
       expect(draws).toHaveLength(2);
       const names1 = new Set(draws[0].winners.map((w: { full_name: string }) => w.full_name.toLowerCase()));
       for (const w of draws[1].winners) expect(names1.has(w.full_name.toLowerCase())).toBe(false);
+    });
+  });
+
+  describe("custom sounds", () => {
+    const mp3 = (n = 2000) => Buffer.concat([Buffer.from("ID3"), Buffer.alloc(n, 7)]);
+    const put = (t: string, kind: string, buf: Buffer, name = "boom.mp3") =>
+      request(app).put(`/api/sounds/${kind}`).set("Authorization", `Bearer ${t}`).attach("file", buf, { filename: name, contentType: "audio/mpeg" });
+
+    it("only admins can upload or remove; staff and anonymous are refused", async () => {
+      expect((await put(staff, "countdown", mp3())).status).toBe(403);
+      expect((await request(app).put("/api/sounds/countdown").attach("file", mp3(), "x.mp3")).status).toBe(401);
+      expect((await request(app).delete("/api/sounds/countdown")).status).toBe(401);
+      expect((await request(app).delete("/api/sounds/countdown").set("Authorization", `Bearer ${staff}`)).status).toBe(403);
+    });
+    it("rejects non-audio files, other kinds and files over 4 MB", async () => {
+      expect((await put(admin, "countdown", Buffer.from("<html>definitely not audio</html>"), "evil.mp3")).status).toBe(400);
+      expect((await put(admin, "fanfare", mp3())).status).toBe(400);
+      expect((await put(admin, "countdown", mp3(4 * 1024 * 1024 + 10))).status).toBe(413);
+      expect(sounds.files.size).toBe(0);
+    });
+    it("stores a sound, replaces it (old file removed) and the projector token can read it", async () => {
+      const a = await put(admin, "countdown", mp3(), "my countdown.mp3");
+      expect(a.status).toBe(201);
+      expect(a.body.sounds.countdown.name).toBe("my countdown.mp3");
+      expect(a.body.sounds.winners).toBeNull();
+      expect(sounds.files.size).toBe(1);
+      const b = await put(admin, "countdown", mp3(3000), "second.mp3");
+      expect(b.status).toBe(201);
+      expect(sounds.files.size).toBe(1);
+      await put(admin, "winners", mp3(), "win.mp3").expect(201);
+      const { token: pt } = createProjectorToken(projectorSecret(env), 600);
+      const read = await request(app).get(`/api/sounds?t=${pt}`);
+      expect(read.status).toBe(200);
+      expect(read.body.sounds.countdown.url).toContain("https://files.test/countdown/");
+      expect(read.body.sounds.winners.name).toBe("win.mp3");
+      expect((await request(app).get("/api/sounds")).status).toBe(401);
+      expect((await request(app).get("/api/sounds?t=bad")).status).toBe(401);
+      expect((await request(app).put(`/api/sounds/winners?t=${pt}`).attach("file", mp3(), "x.mp3")).status).toBe(401);
+    });
+    it("removing a sound deletes the file and falls back to the built-in sound", async () => {
+      const r = await request(app).delete("/api/sounds/countdown").set("Authorization", `Bearer ${admin}`);
+      expect(r.status).toBe(200);
+      expect(r.body.sounds.countdown).toBeNull();
+      expect(sounds.files.size).toBe(1);
+      await request(app).delete("/api/sounds/winners").set("Authorization", `Bearer ${admin}`).expect(200);
+      expect(sounds.files.size).toBe(0);
     });
   });
 

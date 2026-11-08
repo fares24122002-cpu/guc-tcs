@@ -1,9 +1,10 @@
-import type { RequestHandler } from "express";
+import type { NextFunction, Request, RequestHandler, Response } from "express";
 import { z } from "zod";
 import type { Env } from "../config/env.js";
 import { requireAuth, requireRole, userRateLimit } from "../middleware/auth.js";
 import { HttpError } from "../middleware/errorHandler.js";
 import type { Deps } from "../services/ports.js";
+import { projectorSecret, verifyProjectorToken } from "../services/projector.js";
 import type { PhotoStorage } from "../services/storage.js";
 
 /** Middleware chains shared by the feature routers. */
@@ -36,3 +37,24 @@ export function parse<T extends z.ZodTypeAny>(schema: T, value: unknown, message
 
 export const uuid = z.string().uuid("Invalid id.");
 export const boolish = z.union([z.boolean(), z.enum(["true", "false"]).transform((v) => v === "true")]);
+
+/** Read access: a signed-in admin, or a valid read-only projector token (?t=...). */
+export function adminOrProjectorToken(env: Env, deps: Deps): RequestHandler {
+  const secret = projectorSecret(env);
+  return (req: Request, res: Response, next: NextFunction) => {
+    const t = typeof req.query.t === "string" ? req.query.t : undefined;
+    if (t) {
+      if (verifyProjectorToken(secret, t)) return next();
+      return next(new HttpError(401, "This projector link has expired. Ask an administrator for a new one."));
+    }
+    const chain: RequestHandler[] = [requireAuth(deps), requireRole("admin")];
+    let i = 0;
+    const step = (err?: unknown) => {
+      if (err) return next(err);
+      const fn = chain[i++];
+      if (!fn) return next();
+      fn(req, res, step);
+    };
+    step();
+  };
+}

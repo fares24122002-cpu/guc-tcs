@@ -27,7 +27,7 @@ export const errorHandler: ErrorRequestHandler = (err, req, res, _next) => {
     return;
   }
   if (e.type === "entity.too.large" || e.code === "LIMIT_FILE_SIZE") {
-    res.status(413).json({ error: "The upload is too large (photos can be at most 6 MB)." });
+    res.status(413).json({ error: "The file is too large (photos up to 6 MB, sounds up to 4 MB)." });
     return;
   }
   if (e.code === "LIMIT_UNEXPECTED_FILE" || e.code === "LIMIT_FILE_COUNT" || e.code === "LIMIT_FIELD_COUNT") {

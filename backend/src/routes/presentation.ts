@@ -7,7 +7,7 @@ import { HttpError } from "../middleware/errorHandler.js";
 import { runOfficialDraw } from "../services/draw.js";
 import type { Deps } from "../services/ports.js";
 import { createProjectorToken, projectorSecret, verifyProjectorToken } from "../services/projector.js";
-import { guards, parse, withPhotoUrls } from "./common.js";
+import { adminOrProjectorToken, guards, parse, withPhotoUrls } from "./common.js";
 
 export const COUNTDOWN_SECONDS = 15;
 const PROJECTOR_TOKEN_TTL_SECONDS = 12 * 3600;
@@ -30,23 +30,7 @@ export function presentationRouter(env: Env, deps: Deps): Router {
     }),
   );
 
-  /** Read access: a signed-in admin, or a valid read-only projector token (?t=...). */
-  const adminOrToken: RequestHandler = (req: Request, res: Response, next: NextFunction) => {
-    const t = typeof req.query.t === "string" ? req.query.t : undefined;
-    if (t) {
-      if (verifyProjectorToken(secret, t)) return next();
-      return next(new HttpError(401, "This projector link has expired. Ask an administrator for a new one."));
-    }
-    const chain: RequestHandler[] = [requireAuth(deps), requireRole("admin")];
-    let i = 0;
-    const step = (err?: unknown) => {
-      if (err) return next(err);
-      const fn = chain[i++];
-      if (!fn) return next();
-      fn(req, res, step);
-    };
-    step();
-  };
+  const adminOrToken = adminOrProjectorToken(env, deps);
 
   async function buildState() {
     let pres = await deps.repo.presentation();
