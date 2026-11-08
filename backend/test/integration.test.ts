@@ -146,7 +146,7 @@ describe.skipIf(!pgConfigured)("giveaway system against a real PostgreSQL databa
       expect(r.status).toBe(201);
       expect(r.body.registration.code).toMatch(/^TCS-\d{5}$/);
       expect(r.body.registration.photo_url).toContain("https://files.test/event-day-1/");
-      expect(storage.files.size).toBe(1);
+      expect(storage.files.size).toBe(2);
     });
     it("is safe to retry: the same key never creates a second record or a second file", async () => {
       const key = crypto.randomUUID();
@@ -493,7 +493,7 @@ describe.skipIf(!pgConfigured)("giveaway system against a real PostgreSQL databa
       const left = (await pool.query("select id from public.registrations")).rows.map((x) => x.id).sort();
       expect(left).toEqual(winnerRows.map((x) => x.id).sort());
       for (const w of winnerRows) if (w.photo_path) expect(storage.files.has(w.photo_path)).toBe(true);
-      expect(storage.files.size).toBeLessThanOrEqual(10);
+      expect(storage.files.size).toBeLessThanOrEqual(20); // 10 winner photos + their thumbnails
       // protection is back on
       await expect(pool.query("delete from public.registrations")).rejects.toThrow();
       await expect(pool.query("delete from public.winners")).rejects.toThrow();
