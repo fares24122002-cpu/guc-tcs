@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ApiError, api, apiUrl, loadSession } from "../lib/api";
-import { compressPhoto, PhotoError } from "../lib/compress";
+import { compressPhoto, makeThumbnail, PhotoError } from "../lib/compress";
 import { errorMessage, useLoad } from "../lib/hooks";
 import { Alert, Btn, Card, Field, inputCls, Loading, PageTitle, Stat } from "../components/ui";
 
@@ -89,6 +89,8 @@ export default function Register() {
       form.set("consent", String(consent));
       if (allowDuplicate) form.set("allow_duplicate", "true");
       form.set("photo", photo);
+      const thumb = await makeThumbnail(photo);
+      if (thumb) form.set("thumb", thumb);
       const { status, body } = await upload(form, setProgress);
       if (status === 401) throw new ApiError(401, "Your session ended. Sign in again; your entry is still here.");
       if (status === 409 && body.code === "possible_duplicate") {

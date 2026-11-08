@@ -18,7 +18,7 @@ You will handle three secrets. They are typed only into the hosts' settings page
 
 **A2. Auth settings.** Authentication → Providers → Email: keep enabled, turn **Confirm email OFF**. Turn **Allow new users to sign up OFF** (Authentication → Sign In / Providers).
 
-**A3. Migrations.** SQL Editor → New query. Paste and run each file from `database/migrations/` **in order, once each**: `0001_schema.sql`, `0002_functions.sql`, `0003_rls.sql`, `0004_storage.sql`, `0005_features.sql`, `0006_sounds.sql`, `0007_reset.sql`, `0008_presenter.sql`. Each should say "Success". On any error, stop and send me the exact message.
+**A3. Migrations.** SQL Editor → New query. Paste and run each file from `database/migrations/` **in order, once each**: `0001_schema.sql`, `0002_functions.sql`, `0003_rls.sql`, `0004_storage.sql`, `0005_features.sql`, `0006_sounds.sql`, `0007_reset.sql`, `0008_presenter.sql`, `0009_reset_fix.sql`. Each should say "Success". On any error, stop and send me the exact message.
 Check: Table Editor shows 9 tables with RLS enabled, and `event_days` has 3 rows. Storage shows a private `participant-photos` bucket.
 
 **A4. Copy three values** (Project Settings → API Keys, and the **Connect** button for the URL; or build it from the address bar: `supabase.com/dashboard/project/<ref>` gives `https://<ref>.supabase.co`):

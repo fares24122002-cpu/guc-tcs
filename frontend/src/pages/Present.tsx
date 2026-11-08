@@ -10,7 +10,7 @@ interface Winner { position: number; full_name: string; reg_number: number; phot
 interface State {
   phase: "none" | "idle" | "countdown" | "revealed";
   server_time: string; countdown_seconds: number; countdown_started_at: string | null;
-  muted: boolean; winner_count: number; draw_type: "daily" | "global"; day_number: number | null; winners?: Winner[];
+  sounds_rev?: string; muted: boolean; winner_count: number; draw_type: "daily" | "global"; day_number: number | null; winners?: Winner[];
 }
 const WORDS = ["", "ONE", "TWO", "THREE", "FOUR", "FIVE", "SIX", "SEVEN", "EIGHT", "NINE", "TEN"];
 const reduced = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -41,6 +41,7 @@ function Projector({ token, admin, isAdmin = false, onSignOut }: { token: string
   const [now, setNow] = useState(() => Date.now());
   const [localMute, setLocalMute] = useState(false);
   const [soundOn, setSoundOn] = useState(false);
+  const [soundBlocked, setSoundBlocked] = useState(false);
   const [shuffling, setShuffling] = useState(false);
   const [shuffleError, setShuffleError] = useState("");
   const prevPhase = useRef<string>("");
@@ -93,15 +94,32 @@ function Projector({ token, admin, isAdmin = false, onSignOut }: { token: string
     return () => clearInterval(id);
   }, [state?.phase]);
 
-  // Photos for the shuffle visuals, prefetched before the countdown starts.
+  // Photos for the shuffle wall: fetched once (never in parallel), preloaded, and only fully loaded ones are used.
+  const poolBusy = useRef(false);
+  const [loadingPhotos, setLoadingPhotos] = useState<{ done: number; total: number } | null>(null);
   useEffect(() => {
-    if (!state || state.phase === "revealed" || photos.length) return;
-    fetchJson<{ photos: string[] }>("/presentation/pool?limit=48")
-      .then((r) => {
-        r.photos.forEach((u) => { const i = new Image(); i.src = u; });
-        setPhotos(r.photos);
+    if (!state || state.phase === "revealed" || photos.length || poolBusy.current) return;
+    poolBusy.current = true;
+    fetchJson<{ photos: string[] }>("/presentation/pool?limit=36")
+      .then(async (r) => {
+        let done = 0;
+        setLoadingPhotos({ done, total: r.photos.length });
+        const loaded: string[] = [];
+        await Promise.all(r.photos.map((u) => new Promise<void>((resolve) => {
+          const img = new Image();
+          const finish = (ok: boolean) => { if (ok) loaded.push(u); setLoadingPhotos({ done: ++done, total: r.photos.length }); resolve(); };
+          img.onload = () => finish(true);
+          img.onerror = () => finish(false);
+          img.src = u;
+        })));
+        if (loaded.length) setPhotos(loaded);
       })
-      .catch(() => undefined);
+      .catch(() => undefined)
+      .finally(() => {
+        setLoadingPhotos(null);
+        // On failure, try again in a few seconds (a successful load stops further attempts).
+        setTimeout(() => { poolBusy.current = false; }, 5000);
+      });
   }, [state?.phase, fetchJson, photos.length, state]);
 
   // Custom sounds uploaded by the admin (fall back to the built-in synthesized ones when absent).
@@ -117,7 +135,8 @@ function Projector({ token, admin, isAdmin = false, onSignOut }: { token: string
     void load();
     const id = setInterval(load, 20 * 60 * 1000); // signed links last 6 hours; refresh well before that
     return () => { alive = false; clearInterval(id); };
-  }, [fetchJson]);
+    // Also reload straight away whenever an admin uploads or removes a sound.
+  }, [fetchJson, state?.sounds_rev]);
   useEffect(() => {
     const make = (url: string | null, prev: HTMLAudioElement | null) => {
       if (prev && url && prev.src === url) return prev;
@@ -147,14 +166,14 @@ function Projector({ token, admin, isAdmin = false, onSignOut }: { token: string
           if (cd.paused) {
             const elapsed = Math.max(0, Math.min(14.5, (state?.countdown_seconds ?? 15) - remainingMs / 1000));
             try { cd.currentTime = prev === "countdown" || !prev ? elapsed : 0; } catch { /* not seekable yet */ }
-            void cd.play().catch(() => undefined);
+            void cd.play().catch(() => setSoundBlocked(true));
           }
         } else if (prev && prev !== phase) sounds.start();
       } else if (cd && !cd.paused) {
         cd.pause();
       }
       if (phase === "revealed" && prev === "countdown") {
-        if (win) { win.currentTime = 0; void win.play().catch(() => undefined); } else sounds.reveal();
+        if (win) { win.currentTime = 0; void win.play().catch(() => setSoundBlocked(true)); } else sounds.reveal();
       }
       if (phase !== "revealed") win?.pause();
     }
@@ -179,11 +198,22 @@ function Projector({ token, admin, isAdmin = false, onSignOut }: { token: string
     return () => { window.removeEventListener("keydown", key); void lock?.release(); };
   }, []);
 
-  const enableSound = () => setSoundOn(unlockAudio());
+  const enableSound = () => {
+    setSoundOn(unlockAudio());
+    setSoundBlocked(false);
+    // Browsers only let an audio element play later if it has been "touched" during a click.
+    for (const a of [countdownAudio.current, winnersAudio.current]) {
+      if (!a) continue;
+      const was = a.muted;
+      a.muted = true;
+      void a.play().then(() => { a.pause(); a.currentTime = 0; a.muted = was; }).catch(() => { a.muted = was; });
+    }
+  };
   useEffect(() => {
     const unlock = () => enableSound();
     window.addEventListener("pointerdown", unlock, { once: true });
     return () => window.removeEventListener("pointerdown", unlock);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function shuffle() {
@@ -225,12 +255,14 @@ function Projector({ token, admin, isAdmin = false, onSignOut }: { token: string
           ) : (
             <p className="mt-12 text-xl text-white/50">The draw will begin shortly…</p>
           )}
+          {loadingPhotos && <p className="mt-4 text-sm text-white/40" role="status">Preparing photos… {loadingPhotos.done}/{loadingPhotos.total}</p>}
           {shuffleError && <p role="alert" className="mt-6 max-w-xl rounded-lg border border-red-400/30 bg-red-500/10 px-4 py-3 text-red-200">{shuffleError}</p>}
         </div>
       )}
 
       <div className="fixed bottom-3 right-3 z-30 flex items-center gap-2 opacity-40 transition hover:opacity-100" style={{ cursor: "default" }}>
-        {!muted && !soundOn && !audioReady() && <span className="rounded bg-black/60 px-2 py-1 text-xs">Click anywhere to enable sound</span>}
+        {soundBlocked && <span className="rounded bg-amber-500/90 px-2 py-1 text-xs font-semibold text-black">Sound was blocked by the browser. Click the page once.</span>}
+        {!muted && !soundOn && !audioReady() && !soundBlocked && <span className="rounded bg-black/60 px-2 py-1 text-xs">Click anywhere to enable sound</span>}
         <button onClick={toggleMute} className="h-10 w-10 rounded-full bg-black/60 text-lg" aria-label={muted ? "Unmute" : "Mute"}>{muted ? "🔇" : "🔊"}</button>
         <button onClick={() => void toggleFullscreen()} className="h-10 w-10 rounded-full bg-black/60 text-lg" aria-label="Full screen">⛶</button>
         {onSignOut && <button onClick={onSignOut} className="h-10 rounded-full bg-black/60 px-3 text-xs">Sign out</button>}
@@ -270,7 +302,7 @@ function ShuffleStage({ photos, count }: { photos: string[]; count: number }) {
       <div className="absolute inset-0 grid gap-1 p-1 opacity-70" style={{ gridTemplateColumns: `repeat(${COLS}, 1fr)`, gridTemplateRows: `repeat(${ROWS}, 1fr)` }} aria-hidden>
         {tiles.map((ph, i) => (
           <div key={i} className={`overflow-hidden rounded-md bg-ink-800 transition ${i === hot && !reduced() ? "scale-105 ring-4 ring-gold-400" : ""}`}>
-            {photos.length > 0 && <img src={photos[ph % photos.length]} alt="" className="h-full w-full object-cover" />}
+            {photos.length > 0 ? <img src={photos[ph % photos.length]} alt="" className="h-full w-full object-cover" /> : <div className="h-full w-full animate-pulse bg-gold-500/10" />}
           </div>
         ))}
       </div>
@@ -294,6 +326,15 @@ function Reveal({ winners, count, fanfare, muted }: { winners: Winner[]; count: 
     if (!canvas.current) return;
     return startFireworks(canvas.current, { intenseMs: fanfare ? 8000 : 2500, onPop: () => { if (!mutedRef.current && audioReady()) sounds.pop(); } });
   }, [fanfare]);
+  const [ready, setReady] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    const urls = winners.map((w) => w.photo_url).filter((u): u is string => Boolean(u));
+    const timer = setTimeout(() => !cancelled && setReady(true), 3000);
+    Promise.all(urls.map((u) => new Promise<void>((res) => { const i = new Image(); i.onload = i.onerror = () => res(); i.src = u; })))
+      .then(() => { clearTimeout(timer); if (!cancelled) setReady(true); });
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, [winners]);
   const n = winners.length;
   const title = WORDS[count] ? `WE HAVE OUR ${WORDS[count]} WINNER${count === 1 ? "" : "S"}!` : "WE HAVE OUR WINNERS!";
   return (
@@ -302,7 +343,7 @@ function Reveal({ winners, count, fanfare, muted }: { winners: Winner[]; count: 
       <div className="relative z-10 w-full text-center">
         <h1 className="reveal-in font-display text-4xl font-bold text-gold-300 drop-shadow-[0_0_30px_rgba(224,187,98,0.7)] sm:text-6xl">{title}</h1>
         <p className="reveal-in mt-3 font-display text-2xl tracking-[0.4em] text-white sm:text-4xl">CONGRATULATIONS!</p>
-        <ol className="mx-auto mt-10 grid w-full max-w-[1800px] gap-3 sm:gap-5" style={{ gridTemplateColumns: `repeat(${n}, minmax(0, 1fr))` }}>
+        <ol className={`mx-auto mt-10 grid w-full max-w-[1800px] gap-3 sm:gap-5 ${ready ? "" : "invisible"}`} style={{ gridTemplateColumns: `repeat(${n}, minmax(0, 1fr))` }}>
           {winners.map((w) => (
             <li key={w.position} className="reveal-card rounded-2xl border-2 border-gold-400/70 bg-ink-900/80 p-2 shadow-[0_0_40px_rgba(224,187,98,0.35)] backdrop-blur sm:p-4">
               {w.photo_url ? <img src={w.photo_url} alt={`Photo of ${w.full_name}`} className="aspect-square w-full rounded-xl object-cover" /> : <div className="aspect-square w-full rounded-xl bg-ink-800" />}

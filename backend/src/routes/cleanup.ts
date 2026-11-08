@@ -4,7 +4,7 @@ import type { Env } from "../config/env.js";
 import { asyncHandler } from "../middleware/auth.js";
 import { HttpError } from "../middleware/errorHandler.js";
 import type { Deps } from "../services/ports.js";
-import { guards, parse, uuid } from "./common.js";
+import { guards, parse, removePhotos, uuid } from "./common.js";
 
 export const CLEANUP_BATCH = 100;
 export const CLEANUP_CONFIRM_PHRASE = "DELETE PHOTOS";
@@ -57,7 +57,7 @@ export function cleanupRouter(env: Env, deps: Deps): Router {
       }
 
       const batch = await deps.repo.cleanupCandidates(body.event_day_id ?? "", CLEANUP_BATCH);
-      const { removed, failed } = await deps.storage.remove(batch.map((b) => b.photo_path));
+      const { removed, failed } = await removePhotos(deps.storage, batch.map((b) => b.photo_path));
       const removedSet = new Set(removed);
       const ids = batch.filter((b) => removedSet.has(b.photo_path)).map((b) => b.id);
       const marked = ids.length ? await deps.repo.markPhotosDeleted(admin, ids) : { updated: 0 };

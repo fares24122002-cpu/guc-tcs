@@ -35,6 +35,23 @@ export function validatePhoto(file: File): void {
   if (file.size === 0) throw new PhotoError("That photo is empty.");
 }
 
+/** A small (about 360 px, ~20 KB) copy of an already-compressed photo, used for the shuffle wall on the big screen. */
+export async function makeThumbnail(photo: File): Promise<File | null> {
+  try {
+    const bitmap = await createImageBitmap(photo);
+    const scale = Math.min(1, 360 / Math.max(bitmap.width, bitmap.height));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+    canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+    canvas.getContext("2d")?.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    bitmap.close();
+    const blob = await toBlob(canvas, 0.7);
+    return blob ? new File([blob], "thumb.jpg", { type: "image/jpeg" }) : null;
+  } catch {
+    return null; // optional: the registration works without it
+  }
+}
+
 export async function compressPhoto(file: File): Promise<File> {
   validatePhoto(file);
   let bitmap: ImageBitmap | HTMLImageElement;

@@ -77,3 +77,19 @@ describe("export safety", () => {
     expect(csv).toContain("'=HYPERLINK(1)");
   });
 });
+
+describe("migrations stay compatible with Supabase's API connection", () => {
+  it("never contain a DELETE or UPDATE without a WHERE clause (pg_safeupdate rejects those)", async () => {
+    const { readdirSync, readFileSync } = await import("node:fs");
+    const { join } = await import("node:path");
+    const dir = join(import.meta.dirname, "..", "..", "database", "migrations");
+    const offenders: string[] = [];
+    for (const f of readdirSync(dir).filter((x) => x.endsWith(".sql"))) {
+      const sql = readFileSync(join(dir, f), "utf8").replace(/--[^\n]*/g, "");
+      for (const m of sql.matchAll(/\b(delete\s+from\s+[\w.]+|update\s+[\w.]+\s+(?:\w+\s+)?set\b)([^;]*);/gis)) {
+        if (!/\bwhere\b/i.test(m[0])) offenders.push(`${f}: ${m[0].replace(/\s+/g, " ").slice(0, 80)}`);
+      }
+    }
+    expect(offenders).toEqual([]);
+  });
+});

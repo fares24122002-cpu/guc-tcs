@@ -3,6 +3,8 @@
 -- Registrations, draws and winners are protected by triggers so nothing can be changed by accident.
 -- This function is the single, deliberate exception: it runs as the table owner (SECURITY DEFINER),
 -- only an active administrator may call it (checked inside), and it is only granted to the backend.
+-- Note: every DELETE has a WHERE clause (even "where true"). Supabase's API connection runs pg_safeupdate,
+-- which rejects DELETE/UPDATE statements without one.
 -- Everything happens in one transaction: either all of it is applied or none of it.
 
 create function public.api_reset_preview(p jsonb default '{}') returns jsonb
@@ -40,12 +42,12 @@ begin
     select count(*) into n_winners from public.winners;
     select count(*) into n_draws from public.giveaway_draws;
     update public.giveaway_settings set active_draw_id = null where id = 1;
-    delete from public.presentation_sessions;
-    delete from public.winners;
-    delete from public.giveaway_draws;
-    delete from public.duplicate_candidates;
-    delete from public.registrations;
-    delete from public.participant_identities;
+    delete from public.presentation_sessions where true;
+    delete from public.winners where true;
+    delete from public.giveaway_draws where true;
+    delete from public.duplicate_candidates where true;
+    delete from public.registrations where true;
+    delete from public.participant_identities where true;
     alter table public.registrations alter column reg_number restart with 1;
   else
     select coalesce(jsonb_agg(r.photo_path), '[]'::jsonb) into paths

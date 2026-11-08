@@ -4,12 +4,14 @@ import { z } from "zod";
 import type { Env } from "../config/env.js";
 import { asyncHandler, requireAuth, requireRole } from "../middleware/auth.js";
 import { HttpError } from "../middleware/errorHandler.js";
+import { thumbPath } from "../services/image.js";
 import { runOfficialDraw } from "../services/draw.js";
 import type { Deps } from "../services/ports.js";
 import { createProjectorToken, projectorSecret, verifyProjectorToken } from "../services/projector.js";
 import { adminOrProjectorToken, guards, parse, withPhotoUrls } from "./common.js";
 
 export const COUNTDOWN_SECONDS = 15;
+const POOL_URL_TTL_SECONDS = 6 * 3600;
 const PROJECTOR_TOKEN_TTL_SECONDS = 12 * 3600;
 
 type Phase = "none" | "idle" | "countdown" | "revealed";
@@ -45,6 +47,8 @@ export function presentationRouter(env: Env, deps: Deps): Router {
       }
     }
     const s = pres.settings;
+    // Changes whenever an admin uploads or removes a sound, so open projector screens reload them.
+    const sounds_rev = (await deps.repo.getSounds()).map((x) => `${x.kind}:${x.updated_at}`).join("|");
     const phase: Phase = !pres.draw_id || !session ? "none" : session.state;
     const base = {
       phase,
@@ -56,6 +60,7 @@ export function presentationRouter(env: Env, deps: Deps): Router {
       draw_type: s.draw_type,
       day_number: s.day_number,
       draw_id: pres.draw_id,
+      sounds_rev,
     };
     if (phase === "revealed" && pres.draw_id) {
       const draw = await deps.repo.getDraw(pres.draw_id);
@@ -81,9 +86,12 @@ export function presentationRouter(env: Env, deps: Deps): Router {
     asyncHandler(async (req, res) => {
       const limit = parse(z.coerce.number().int().min(1).max(100).default(48), req.query.limit ?? undefined);
       const sample = await deps.repo.shuffleSample(limit);
-      const urls = await deps.storage.signedUrls(sample.map((s) => s.photo_path), 900);
+      // Small thumbnails when they exist (fast on venue Wi-Fi); the full photo otherwise.
+      const thumbs = await deps.storage.signedUrls(sample.map((s) => thumbPath(s.photo_path)), POOL_URL_TTL_SECONDS);
+      const missing = sample.filter((s) => !thumbs.has(thumbPath(s.photo_path)));
+      const fulls = missing.length ? await deps.storage.signedUrls(missing.map((s) => s.photo_path), POOL_URL_TTL_SECONDS) : new Map<string, string>();
       res.setHeader("Cache-Control", "no-store");
-      res.json({ photos: sample.map((s) => urls.get(s.photo_path)).filter((u): u is string => Boolean(u)) });
+      res.json({ photos: sample.map((s) => thumbs.get(thumbPath(s.photo_path)) ?? fulls.get(s.photo_path)).filter((u): u is string => Boolean(u)) });
     }),
   );
 

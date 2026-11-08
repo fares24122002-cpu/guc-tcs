@@ -5,6 +5,7 @@ import { requireAuth, requireRole, userRateLimit } from "../middleware/auth.js";
 import { HttpError } from "../middleware/errorHandler.js";
 import type { Deps } from "../services/ports.js";
 import { projectorSecret, verifyProjectorToken } from "../services/projector.js";
+import { thumbPath } from "../services/image.js";
 import type { PhotoStorage } from "../services/storage.js";
 
 /** Middleware chains shared by the feature routers. */
@@ -21,6 +22,14 @@ export function guards(env: Env, deps: Deps): { user: RequestHandler[]; admin: R
 }
 
 export const PHOTO_TTL_SECONDS = 3600;
+
+/** Removes photos together with their thumbnails. The result counts photos only. */
+export async function removePhotos(storage: PhotoStorage, paths: string[]): Promise<{ removed: string[]; failed: string[] }> {
+  const res = await storage.remove(paths);
+  const done = res.removed;
+  if (done.length) await storage.remove(done.map(thumbPath)).catch(() => undefined);
+  return res;
+}
 
 /** Adds a short-lived signed `photo_url` to rows that have a `photo_path`. */
 export async function withPhotoUrls<T extends { photo_path?: string | null }>(

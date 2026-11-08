@@ -5,7 +5,7 @@ import { z } from "zod";
 import type { Env } from "../config/env.js";
 import { asyncHandler } from "../middleware/auth.js";
 import { HttpError } from "../middleware/errorHandler.js";
-import { detectImage } from "../services/image.js";
+import { detectImage, thumbPath } from "../services/image.js";
 import type { Deps } from "../services/ports.js";
 import { boolish, guards, parse, uuid, withPhotoUrls } from "./common.js";
 
@@ -46,11 +46,13 @@ export function registrationsRouter(env: Env, deps: Deps): Router {
   router.post(
     "/",
     ...g.user,
-    upload.single("photo"),
+    upload.fields([{ name: "photo", maxCount: 1 }, { name: "thumb", maxCount: 1 }]),
     asyncHandler(async (req, res) => {
       const user = req.user!;
       const fields = parse(fieldsSchema, req.body);
-      const file = req.file;
+      const files = req.files as Record<string, Express.Multer.File[]> | undefined;
+      const file = files?.photo?.[0];
+      const thumb = files?.thumb?.[0];
       if (!file || file.size === 0) throw new HttpError(400, "A photograph is required.");
       const image = detectImage(file.buffer);
       if (!image) throw new HttpError(400, "The photo must be a JPEG, PNG or WebP image.");
@@ -86,6 +88,10 @@ export function registrationsRouter(env: Env, deps: Deps): Router {
       const path = `event-day-${day.day_number}/${randomUUID()}.${image.ext}`;
       try {
         await deps.storage.upload(path, file.buffer, image.mime);
+        // The small preview is optional: a missing or broken one never blocks a registration.
+        if (thumb && thumb.size <= 150 * 1024 && detectImage(thumb.buffer)?.mime === "image/jpeg") {
+          await deps.storage.upload(thumbPath(path), thumb.buffer, "image/jpeg").catch(() => undefined);
+        }
       } catch (err) {
         console.error(err);
         throw new HttpError(502, "The photo could not be uploaded. Please try again.");
@@ -102,7 +108,7 @@ export function registrationsRouter(env: Env, deps: Deps): Router {
         });
         if (reg.photo_path !== path) {
           // A concurrent retry with the same key saved first; discard this extra upload.
-          await deps.storage.remove([path]).catch(() => undefined);
+          await deps.storage.remove([path, thumbPath(path)]).catch(() => undefined);
         }
         const [row] = await withPhotoUrls(deps.storage, [reg as { photo_path: string | null }]);
         res.status(201).json({
@@ -110,7 +116,7 @@ export function registrationsRouter(env: Env, deps: Deps): Router {
         });
       } catch (err) {
         // Never leave a photo behind without a registration.
-        await deps.storage.remove([path]).catch(() => undefined);
+        await deps.storage.remove([path, thumbPath(path)]).catch(() => undefined);
         throw err;
       }
     }),

@@ -43,15 +43,18 @@ export class SupabasePhotoStorage implements PhotoStorage {
       let bytes = 0;
       let objects = 0;
       for (const folder of ["event-day-1", "event-day-2", "event-day-3"]) {
-        for (let offset = 0; ; offset += 100) {
-          const { data, error } = await this.admin.storage.from(this.bucket).list(folder, { limit: 100, offset });
-          if (error) return null;
-          if (!data || data.length === 0) break;
-          for (const item of data) {
-            objects += 1;
-            bytes += Number((item.metadata as { size?: number } | null)?.size ?? 0);
+        for (const [dir, countsAsPhoto] of [[folder, true], [`${folder}/thumbs`, false]] as const) {
+          for (let offset = 0; ; offset += 100) {
+            const { data, error } = await this.admin.storage.from(this.bucket).list(dir, { limit: 100, offset });
+            if (error) return null;
+            if (!data || data.length === 0) break;
+            for (const item of data) {
+              if (!item.id) continue; // a sub-folder entry, not a file
+              if (countsAsPhoto) objects += 1;
+              bytes += Number((item.metadata as { size?: number } | null)?.size ?? 0);
+            }
+            if (data.length < 100) break;
           }
-          if (data.length < 100) break;
         }
       }
       return { bytes, objects };

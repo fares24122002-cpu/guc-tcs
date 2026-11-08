@@ -85,7 +85,7 @@ const ERRORS: Record<string, [number, string]> = {
   invalid_action: [400, "Invalid action."],
 };
 
-function mapError(error: { code?: string; message: string }): HttpError {
+function mapError(error: { code?: string; message: string }, exposeDetails = false): HttpError {
   const known = ERRORS[error.message.trim()];
   if (known) return new HttpError(known[0], known[1]);
   if (error.code === "23514" || error.code === "22P02" || error.code === "22007" || error.code === "22008") {
@@ -93,6 +93,8 @@ function mapError(error: { code?: string; message: string }): HttpError {
   }
   if (error.code === "23505") return new HttpError(409, "That already exists.");
   console.error("database error:", error.code, error.message);
+  // Administrator-only maintenance calls show the real reason so a problem can be diagnosed.
+  if (exposeDetails) return new HttpError(500, `Database error${error.code ? ` (${error.code})` : ""}: ${error.message}`);
   return new HttpError(500, "Something went wrong. Please try again.");
 }
 
@@ -100,9 +102,9 @@ function mapError(error: { code?: string; message: string }): HttpError {
 export class Repo {
   constructor(private readonly db: RpcClient) {}
 
-  private async call<T = Row>(fn: string, p: Record<string, unknown> = {}): Promise<T> {
+  private async call<T = Row>(fn: string, p: Record<string, unknown> = {}, exposeDetails = false): Promise<T> {
     const { data, error } = await this.db.rpc(fn, { p });
-    if (error) throw mapError(error);
+    if (error) throw mapError(error, exposeDetails);
     return data as T;
   }
 
@@ -164,7 +166,7 @@ export class Repo {
   // full data reset
   resetPreview() { return this.call<{ registrations: number; winner_registrations: number; draws: number; photos: number; winner_photos: number }>("api_reset_preview"); }
   resetData(admin: string, includeWinners: boolean) {
-    return this.call<{ registrations_before: number; registrations_kept: number; winners_deleted: number; draws_deleted: number; photo_paths: string[] }>("api_reset_data", { admin, include_winners: includeWinners });
+    return this.call<{ registrations_before: number; registrations_kept: number; winners_deleted: number; draws_deleted: number; photo_paths: string[] }>("api_reset_data", { admin, include_winners: includeWinners }, true);
   }
 
   // cleanup

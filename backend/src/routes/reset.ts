@@ -4,7 +4,7 @@ import type { Env } from "../config/env.js";
 import { asyncHandler } from "../middleware/auth.js";
 import { HttpError } from "../middleware/errorHandler.js";
 import type { Deps } from "../services/ports.js";
-import { guards, parse } from "./common.js";
+import { guards, parse, removePhotos } from "./common.js";
 
 export const RESET_CONFIRM_PHRASE = "DELETE ALL DATA";
 
@@ -51,7 +51,7 @@ export function resetRouter(env: Env, deps: Deps): Router {
       const paths = result.photo_paths ?? [];
       for (let i = 0; i < paths.length; i += 100) {
         const chunk = paths.slice(i, i + 100);
-        const r = await deps.storage.remove(chunk).catch(() => ({ removed: [] as string[], failed: chunk }));
+        const r = await removePhotos(deps.storage, chunk).catch(() => ({ removed: [] as string[], failed: chunk }));
         removed += r.removed.length;
         failed += r.failed.length;
       }
