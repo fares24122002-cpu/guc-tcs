@@ -13,7 +13,7 @@ export const MAX_UPLOAD_BYTES = 6 * 1024 * 1024;
 
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: MAX_UPLOAD_BYTES, files: 1, fields: 10, parts: 12 },
+  limits: { fileSize: MAX_UPLOAD_BYTES, files: 2, fields: 10, parts: 12 },
 });
 
 const fieldsSchema = z.object({

@@ -50,7 +50,7 @@ describe.skipIf(!pgConfigured)("giveaway system against a real PostgreSQL databa
       .field("idempotency_key", extra.idempotency_key ?? crypto.randomUUID())
       .field("consent", extra.consent ?? "true");
     if (extra.allow_duplicate) r.field("allow_duplicate", extra.allow_duplicate);
-    return r.attach("photo", buf, { filename: "p.jpg", contentType: "image/jpeg" });
+    return r.attach("photo", buf, { filename: "p.jpg", contentType: "image/jpeg" }).attach("thumb", JPEG(), { filename: "thumb.jpg", contentType: "image/jpeg" });
   };
 
   beforeAll(async () => {
