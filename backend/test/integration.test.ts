@@ -78,7 +78,7 @@ describe.skipIf(!pgConfigured)("giveaway system against a real PostgreSQL databa
     const adminOnly: [string, string][] = [
       ["get", "/api/admin/dashboard"], ["get", "/api/admin/activity"], ["get", "/api/admin/system"],
       ["get", "/api/duplicates"], ["get", "/api/draws"], ["get", "/api/draws/settings"], ["put", "/api/draws/settings"],
-      ["post", "/api/draws/unlock"], ["get", "/api/cleanup"], ["post", "/api/cleanup"],
+      ["post", "/api/draws/unlock"], ["get", "/api/cleanup"], ["post", "/api/cleanup"], ["get", "/api/reset"], ["post", "/api/reset"],
       ["get", "/api/exports/registrations.csv"], ["get", "/api/exports/winners.xlsx"],
       ["post", "/api/presentation/shuffle"], ["post", "/api/presentation/replay"], ["post", "/api/presentation/reset"],
       ["post", "/api/presentation/mute"], ["post", "/api/presentation/projector-token"],
@@ -423,6 +423,74 @@ describe.skipIf(!pgConfigured)("giveaway system against a real PostgreSQL databa
       expect(r.headers["cache-control"]).toBe("no-store");
       expect(r.headers["content-disposition"]).toContain("attachment");
       void adminId;
+    });
+  });
+
+  describe("deleting all audience data (runs last: it wipes the data)", () => {
+    const reset = (t: string, body: object) => request(app).post("/api/reset").set("Authorization", `Bearer ${t}`).send(body);
+    const previewOf = async () => (await get(admin, "/api/reset")).body.preview;
+    const dbCount = async (table: string) => (await pool.query(`select count(*)::int n from public.${table}`)).rows[0].n as number;
+
+    it("refuses without the typed phrase, without a choice, with a stale count, and for staff", async () => {
+      const p = await previewOf();
+      expect((await reset(admin, { include_winners: false, expected_count: 1 })).status).toBe(400);
+      expect((await reset(admin, { confirm: "yes", include_winners: false, expected_count: 1 })).status).toBe(400);
+      expect((await reset(admin, { confirm: "DELETE ALL DATA", expected_count: 1 })).status).toBe(400);
+      const stale = await reset(admin, { confirm: "DELETE ALL DATA", include_winners: true, expected_count: p.registrations + 1 });
+      expect(stale.status).toBe(409);
+      expect(stale.body.code).toBe("count_changed");
+      expect((await reset(staff, { confirm: "DELETE ALL DATA", include_winners: true, expected_count: p.registrations })).status).toBe(403);
+      expect(await dbCount("registrations")).toBe(p.registrations);
+    });
+
+    it("keeps the winners (people, photos, draw history) and deletes everyone else", async () => {
+      const p = await previewOf();
+      expect(p.winner_registrations).toBe(10);
+      const winnerRows = (await pool.query("select r.id, r.photo_path, r.reg_number from public.winners w join public.registrations r on r.id = w.registration_id")).rows;
+      const drawsBefore = await dbCount("giveaway_draws");
+      const r = await reset(admin, { confirm: "DELETE ALL DATA", include_winners: false, expected_count: p.registrations - p.winner_registrations });
+      expect(r.status).toBe(200);
+      expect(r.body.registrations_kept).toBe(10);
+      expect(r.body.registrations_deleted).toBe(p.registrations - 10);
+      expect(r.body.photos_failed).toBe(0);
+      expect(await dbCount("registrations")).toBe(10);
+      expect(await dbCount("winners")).toBe(10);
+      expect(await dbCount("giveaway_draws")).toBe(drawsBefore);
+      expect(await dbCount("participant_identities")).toBe(10);
+      const left = (await pool.query("select id from public.registrations")).rows.map((x) => x.id).sort();
+      expect(left).toEqual(winnerRows.map((x) => x.id).sort());
+      for (const w of winnerRows) if (w.photo_path) expect(storage.files.has(w.photo_path)).toBe(true);
+      expect(storage.files.size).toBeLessThanOrEqual(10);
+      // protection is back on
+      await expect(pool.query("delete from public.registrations")).rejects.toThrow();
+      await expect(pool.query("delete from public.winners")).rejects.toThrow();
+      // the winners page still works and the log recorded the reset
+      expect((await get(admin, "/api/draws")).body.draws.length).toBe(drawsBefore);
+      expect((await get(admin, "/api/admin/activity?action=data")).body.logs.length).toBeGreaterThan(0);
+      // numbering continues after the kept winners
+      const next = await register(staff, "Fresh Person After Reset", days[0]!.id);
+      expect(next.status).toBe(201);
+      expect(next.body.registration.reg_number).toBeGreaterThan(Math.max(...winnerRows.map((x) => Number(x.reg_number))));
+    });
+
+    it("deletes everything including winners and draws, restarts numbering and unlocks the giveaway", async () => {
+      const p = await previewOf();
+      const r = await reset(admin, { confirm: "DELETE ALL DATA", include_winners: true, expected_count: p.registrations });
+      expect(r.status).toBe(200);
+      expect(r.body.registrations_kept).toBe(0);
+      expect(r.body.winners_deleted).toBe(10);
+      expect(r.body.draws_deleted).toBe(2);
+      for (const t of ["registrations", "winners", "giveaway_draws", "participant_identities", "duplicate_candidates", "presentation_sessions"]) expect(await dbCount(t)).toBe(0);
+      expect(storage.files.size).toBe(0);
+      const settings = (await get(admin, "/api/draws/settings")).body.settings;
+      expect(settings.locked).toBe(false);
+      expect((await get(admin, "/api/presentation/state")).body.phase).toBe("none");
+      // staff accounts and event days survive; the system is usable again from number 1
+      expect(await dbCount("profiles")).toBeGreaterThan(2);
+      const again = await register(staff, "Brand New Start", days[0]!.id);
+      expect(again.status).toBe(201);
+      expect(again.body.registration.reg_number).toBe(1);
+      await expect(pool.query("delete from public.registrations")).rejects.toThrow();
     });
   });
 });

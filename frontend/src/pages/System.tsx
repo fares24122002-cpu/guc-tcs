@@ -1,9 +1,10 @@
 import { api, apiUrl } from "../lib/api";
 import { useLoad } from "../lib/hooks";
+import { DangerZone } from "../components/DangerZone";
 import { Alert, Badge, Card, fmtDate, Loading, PageTitle, Stat } from "../components/ui";
 
 export default function System() {
-  const { data, error, loading } = useLoad(() => api<any>("/admin/system"));
+  const { data, error, loading, reload } = useLoad(() => api<any>("/admin/system"));
   if (loading && !data) return <Loading />;
   if (error || !data) return <Alert>{error}</Alert>;
   return (
@@ -24,6 +25,7 @@ export default function System() {
         <p>Environment: {data.environment}</p>
         <p>API: {apiUrl}</p>
       </Card>
+      <div className="mt-8"><DangerZone onDone={() => void reload()} /></div>
     </>
   );
 }

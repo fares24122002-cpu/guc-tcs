@@ -17,6 +17,7 @@ import { drawsRouter } from "./routes/draws.js";
 import { presentationRouter } from "./routes/presentation.js";
 import { cleanupRouter } from "./routes/cleanup.js";
 import { soundsRouter } from "./routes/sounds.js";
+import { resetRouter } from "./routes/reset.js";
 import { exportsRouter } from "./routes/exports.js";
 import type { Deps } from "./services/ports.js";
 
@@ -77,6 +78,7 @@ export function createApp(env: Env, deps: Deps): Express {
   app.use("/api/cleanup", cleanupRouter(env, deps));
   app.use("/api/exports", exportsRouter(env, deps));
   app.use("/api/sounds", soundsRouter(env, deps));
+  app.use("/api/reset", resetRouter(env, deps));
 
   app.use(notFound);
   app.use(errorHandler);

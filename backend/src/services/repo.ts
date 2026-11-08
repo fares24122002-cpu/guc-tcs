@@ -161,6 +161,12 @@ export class Repo {
   setSound(admin: string, p: { kind: string; path: string; original_name: string; content_type: string; size_bytes: number }) { return this.call<{ previous_path: string | null }>("api_set_sound", { admin, ...p }); }
   clearSound(admin: string, kind: string) { return this.call<{ previous_path: string | null }>("api_clear_sound", { admin, kind }); }
 
+  // full data reset
+  resetPreview() { return this.call<{ registrations: number; winner_registrations: number; draws: number; photos: number; winner_photos: number }>("api_reset_preview"); }
+  resetData(admin: string, includeWinners: boolean) {
+    return this.call<{ registrations_before: number; registrations_kept: number; winners_deleted: number; draws_deleted: number; photo_paths: string[] }>("api_reset_data", { admin, include_winners: includeWinners });
+  }
+
   // cleanup
   cleanupPreview(eventDayId?: string) { return this.call<Row>("api_cleanup_preview", { event_day_id: eventDayId ?? "" }); }
   cleanupCandidates(eventDayId: string, limit = 500) { return this.call<{ id: string; photo_path: string }[]>("api_cleanup_candidates", { event_day_id: eventDayId, limit }); }

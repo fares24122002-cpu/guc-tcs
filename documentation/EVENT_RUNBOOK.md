@@ -8,6 +8,9 @@
 5. Open **Giveaway** and check the settings: draw type (daily/global), number of winners, "exclude earlier winners".
 6. Open `/present` on the projector laptop (signed in as admin) and press **F** for full screen. Click once anywhere to allow sound.
 
+## Clearing test data before the real event
+After you have tried the system, go to **System → Delete audience data**. Choose whether to keep the test winners or delete everything (winners and draws included, numbering restarts at TCS-00001), type `DELETE ALL DATA` and confirm. Staff accounts, event days and sounds are kept. This cannot be undone; download the reports first if you need them.
+
 ## During registration
 - Staff open the site on their phone → **Register**: take photo → name → consent → **Register**. A code like `TCS-00042` confirms it.
 - If the same name was already registered the app asks first. Choose **Different person** only if it truly is another person.
