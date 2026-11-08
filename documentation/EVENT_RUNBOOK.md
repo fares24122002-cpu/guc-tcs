@@ -2,11 +2,13 @@
 
 ## Before the event
 1. Sign in as admin → **Event days**: set each day's date and target. Leave registration **closed** until the doors open.
-2. **Staff**: create one login per media team member (12+ character password). Give each person their own login so the activity log is meaningful.
+2. **Staff** (Accounts): create one login per media team member (12+ character password). Give each person their own login so the activity log is meaningful.
 3. Put the official logo at `frontend/public/logo.png` (push to `main`); until then a "Logo" placeholder is shown.
 4. **Giveaway → Sounds**: upload your countdown sound (best at about 15 s) and your winners sound (MP3/WAV/OGG/M4A, up to 4 MB each). Without uploads, simple built-in sounds play. Preview each with the player, then test on the projector.
 5. Open **Giveaway** and check the settings: draw type (daily/global), number of winners, "exclude earlier winners".
 6. Open `/present` on the projector laptop (signed in as admin) and press **F** for full screen. Click once anywhere to allow sound.
+
+**Projector account:** under Staff → Add account choose *Projector screen*. Sign in with it on the projector laptop: it opens straight to the screen and can press SHUFFLE, but cannot see registrations, settings, reports or accounts. Replay, reset, mute-for-everyone and the draw settings stay with the admin account.
 
 ## Clearing test data before the real event
 After you have tried the system, go to **System → Delete audience data**. Choose whether to keep the test winners or delete everything (winners and draws included, numbering restarts at TCS-00001), type `DELETE ALL DATA` and confirm. Staff accounts, event days and sounds are kept. This cannot be undone; download the reports first if you need them.

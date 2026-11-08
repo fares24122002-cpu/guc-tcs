@@ -1,4 +1,5 @@
-export type Role = "admin" | "staff";
+/** presenter: can only run the projector screen (open it and press SHUFFLE). */
+export type Role = "admin" | "staff" | "presenter";
 
 export interface Profile {
   id: string;

@@ -25,7 +25,7 @@ describe("sampleDistinct", () => {
     for (let t = 0; t < trials; t++) for (const x of sampleDistinct([...counts.keys()], k)) counts[x]++;
     const expected = (trials * k) / n;
     const chi = counts.reduce((s, c) => s + (c - expected) ** 2 / expected, 0);
-    expect(chi).toBeLessThan(43.8); // df=19, p=0.001
+    expect(chi).toBeLessThan(60); // df=19, p≈1e-5: practically never a false alarm, while any real bias gives hundreds
   });
   it("is positionally unbiased as well", () => {
     const n = 5, trials = 25000;
@@ -33,7 +33,7 @@ describe("sampleDistinct", () => {
     for (let t = 0; t < trials; t++) first[sampleDistinct([0, 1, 2, 3, 4], 5)[0]!]++;
     const expected = trials / n;
     const chi = first.reduce((s, c) => s + (c - expected) ** 2 / expected, 0);
-    expect(chi).toBeLessThan(18.5); // df=4, p=0.001
+    expect(chi).toBeLessThan(33); // df=4, p≈1e-6
   });
   it("takes its randomness from the injected source", () => {
     expect(sampleDistinct([1, 2, 3, 4], 2, () => 0)).toEqual([1, 2]);

@@ -37,10 +37,10 @@ export function requireAuth(deps: Deps): RequestHandler {
   });
 }
 
-export function requireRole(role: Role): RequestHandler {
+export function requireRole(...roles: Role[]): RequestHandler {
   return (req, _res, next) => {
     if (!req.user) return next(new HttpError(401, "Sign in required."));
-    if (req.user.role !== role) return next(new HttpError(403, "You do not have permission to do that."));
+    if (!roles.includes(req.user.role)) return next(new HttpError(403, "You do not have permission to do that."));
     next();
   };
 }

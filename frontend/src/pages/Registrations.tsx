@@ -22,7 +22,7 @@ export function Registrations() {
   const [offset, setOffset] = useState(0);
   const dq = useDebounced(q);
   const days = useLoad(() => api<{ days: { id: string; day_number: number }[] }>("/event-days").then((r) => r.days));
-  const staff = useLoad(() => (user.role === "admin" ? api<{ staff: { id: string; full_name: string }[] }>("/staff").then((r) => r.staff) : Promise.resolve([])));
+  const staff = useLoad(() => (user.role === "admin" ? api<{ staff: { id: string; full_name: string; role: string }[] }>("/staff").then((r) => r.staff.filter((s) => s.role !== "presenter")) : Promise.resolve([])));
   const list = useLoad(() => {
     const p = new URLSearchParams({ limit: String(PAGE), offset: String(offset) });
     if (dq) p.set("q", dq);

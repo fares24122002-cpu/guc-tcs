@@ -27,14 +27,14 @@ describe.skipIf(!pgConfigured)("giveaway system against a real PostgreSQL databa
   let storage: MemoryStorage;
   let sounds: MemoryStorage;
   let auth: PgAuth;
-  let admin: string, staff: string, staff2: string;
+  let admin: string, staff: string, staff2: string, presenter: string;
   let adminId: string;
   let days: { id: string; day_number: number }[];
 
   const get = (t: string, url: string) => request(app).get(url).set("Authorization", `Bearer ${t}`);
   const post = (t: string, url: string, body: object = {}) => request(app).post(url).set("Authorization", `Bearer ${t}`).send(body);
 
-  async function token(username: string, role: "admin" | "staff") {
+  async function token(username: string, role: "admin" | "staff" | "presenter") {
     const id = await auth.createUser(`${username}@${DOMAIN}`, "pw-pw-pw-pw-12");
     await new PgProfileStore(pool).insert({ id, full_name: `${username} Person`, username, role });
     const s = await auth.signIn(`${username}@${DOMAIN}`, "pw-pw-pw-pw-12");
@@ -66,6 +66,7 @@ describe.skipIf(!pgConfigured)("giveaway system against a real PostgreSQL databa
     adminId = a.id;
     staff = (await token("anna", "staff")).t;
     staff2 = (await token("omar", "staff")).t;
+    presenter = (await token("screen1", "presenter")).t;
     days = (await get(admin, "/api/event-days")).body.days;
     expect(days.every((d: { registration_open: boolean }) => d.registration_open === false)).toBe(true);
     for (const d of days) await request(app).patch(`/api/event-days/${d.id}`).set("Authorization", `Bearer ${admin}`).send({ registration_open: true }).expect(200);
@@ -89,6 +90,37 @@ describe.skipIf(!pgConfigured)("giveaway system against a real PostgreSQL databa
       expect(anon.status).toBe(401);
       const s = await (request(app) as any)[method](url).set("Authorization", `Bearer ${staff}`).send({});
       expect(s.status).toBe(403);
+    });
+    it("a presenter account can run the screen but nothing else", async () => {
+      // allowed: read the projector data
+      expect((await get(presenter, "/api/presentation/state")).status).toBe(200);
+      expect((await get(presenter, "/api/presentation/pool")).status).toBe(200);
+      expect((await get(presenter, "/api/sounds")).status).toBe(200);
+      expect((await get(presenter, "/api/auth/me")).status).toBe(200);
+      // refused: everything staff or admins do
+      const refused: [string, string][] = [
+        ["get", "/api/registrations"], ["get", "/api/registrations/summary"], ["post", "/api/registrations"], ["get", "/api/event-days"],
+        ["get", "/api/admin/dashboard"], ["get", "/api/admin/system"], ["get", "/api/duplicates"], ["get", "/api/draws"],
+        ["get", "/api/draws/settings"], ["put", "/api/draws/settings"], ["post", "/api/draws/unlock"], ["get", "/api/cleanup"],
+        ["get", "/api/exports/registrations.csv"], ["get", "/api/staff"], ["post", "/api/staff"], ["get", "/api/reset"], ["post", "/api/reset"],
+        ["post", "/api/presentation/replay"], ["post", "/api/presentation/reset"], ["post", "/api/presentation/mute"], ["post", "/api/presentation/projector-token"],
+      ];
+      for (const [method, url] of refused) {
+        const r = await (request(app) as any)[method](url).set("Authorization", `Bearer ${presenter}`).send({});
+        expect(r.status, `${method} ${url}`).toBe(403);
+      }
+      expect((await request(app).put("/api/sounds/countdown").set("Authorization", `Bearer ${presenter}`).attach("file", Buffer.from("ID3" + "x".repeat(100)), "a.mp3")).status).toBe(403);
+    });
+    it("admins can create and deactivate presenter accounts from the staff page", async () => {
+      const c = await post(admin, "/api/staff", { full_name: "Hall Screen", username: "hallscreen", password: "a-long-password-12", role: "presenter" });
+      expect(c.status).toBe(201);
+      expect(c.body.staff.role).toBe("presenter");
+      const login = await auth.signIn(`hallscreen@${DOMAIN}`, "a-long-password-12");
+      expect((await get(login!.session.access_token, "/api/presentation/state")).status).toBe(200);
+      expect((await get(login!.session.access_token, "/api/registrations")).status).toBe(403);
+      await request(app).patch(`/api/staff/${c.body.staff.id}`).set("Authorization", `Bearer ${admin}`).send({ is_active: false }).expect(200);
+      expect((await get(login!.session.access_token, "/api/presentation/state")).status).toBe(403);
+      expect((await post(admin, "/api/staff", { full_name: "X Y", username: "badrole", password: "a-long-password-12", role: "admin" })).status).toBe(400);
     });
     it("staff cannot change event days", async () => {
       const r = await request(app).patch(`/api/event-days/${days[0]!.id}`).set("Authorization", `Bearer ${staff}`).send({ registration_open: false });
@@ -209,8 +241,8 @@ describe.skipIf(!pgConfigured)("giveaway system against a real PostgreSQL databa
       await request(app).put("/api/draws/settings").set("Authorization", `Bearer ${admin}`).send({ acknowledge_pending_duplicates: true }).expect(200);
     });
 
-    it("SHUFFLE draws, starts the countdown and shows no winners before 15 seconds", async () => {
-      const r = await post(admin, "/api/presentation/shuffle");
+    it("SHUFFLE (pressed by a presenter account) draws, starts the countdown and shows no winners before 15 seconds", async () => {
+      const r = await post(presenter, "/api/presentation/shuffle");
       expect(r.status).toBe(200);
       expect(r.body.phase).toBe("countdown");
       expect(r.body.countdown_seconds).toBe(15);
@@ -269,7 +301,8 @@ describe.skipIf(!pgConfigured)("giveaway system against a real PostgreSQL databa
       const put = await request(app).put("/api/draws/settings").set("Authorization", `Bearer ${admin}`).send({ winner_count: 3 });
       expect(put.status).toBe(409);
       await post(admin, "/api/presentation/reset").then((r) => expect(r.body.phase).toBe("idle"));
-      const r = await post(admin, "/api/presentation/shuffle");
+      const r = await post(presenter, "/api/presentation/shuffle"); // the presenter account can press SHUFFLE
+      expect(r.status).toBe(200);
       expect(r.body.draw_id).toBe(drawId);
       expect((await get(admin, "/api/draws")).body.draws).toHaveLength(1);
     });

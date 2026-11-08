@@ -90,7 +90,7 @@ export function presentationRouter(env: Env, deps: Deps): Router {
   // SHUFFLE: runs the official draw if there is none yet (create-or-retrieve), then starts the 15 s countdown.
   router.post(
     "/shuffle",
-    ...g.admin,
+    ...g.screen,
     asyncHandler(async (req, res) => {
       const admin = req.user!.id;
       const settings = await deps.repo.getSettings();

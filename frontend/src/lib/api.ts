@@ -14,7 +14,7 @@ export interface User {
   id: string;
   username: string;
   full_name: string;
-  role: "admin" | "staff";
+  role: "admin" | "staff" | "presenter";
 }
 
 export interface Session {

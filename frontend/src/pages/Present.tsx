@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { api, ApiError, loadSession, post, publicGet, fetchMe, type User } from "../lib/api";
+import { api, ApiError, loadSession, post, publicGet, fetchMe, signOut, type User } from "../lib/api";
 import { startFireworks } from "../lib/fireworks";
 import { audioReady, sounds, unlockAudio } from "../lib/sound";
 import { errorMessage } from "../lib/hooks";
@@ -27,13 +27,13 @@ export default function Present() {
 
   if (checking) return <Screen><p className="m-auto text-white/50">Loading…</p></Screen>;
   if (!token && !user) return <Login onSignedIn={setUser} notice="" />;
-  if (!token && user?.role !== "admin") return <Screen><p className="m-auto text-xl text-white/70">Only administrators can open the projector.</p></Screen>;
-  return <Projector token={token} admin={!token} />;
+  if (!token && user?.role !== "admin" && user?.role !== "presenter") return <Screen><p className="m-auto text-xl text-white/70">This account cannot open the projector.</p></Screen>;
+  return <Projector token={token} admin={!token} isAdmin={user?.role === "admin"} onSignOut={!token ? () => void signOut().finally(() => location.reload()) : undefined} />;
 }
 
 const Screen = ({ children }: { children: React.ReactNode }) => <main className="flex min-h-screen bg-ink-950">{children}</main>;
 
-function Projector({ token, admin }: { token: string; admin: boolean }) {
+function Projector({ token, admin, isAdmin = false, onSignOut }: { token: string; admin: boolean; isAdmin?: boolean; onSignOut?: () => void }) {
   const [state, setState] = useState<State | null>(null);
   const [error, setError] = useState("");
   const [offset, setOffset] = useState(0); // server clock minus local clock
@@ -201,7 +201,7 @@ function Projector({ token, admin }: { token: string; admin: boolean }) {
   }
   async function toggleMute() {
     enableSound();
-    if (admin) {
+    if (isAdmin) {
       try { await post("/presentation/mute", { muted: !(state?.muted ?? false) }); await refresh(); } catch { /* ignore */ }
     } else setLocalMute((m) => !m);
   }
@@ -233,6 +233,7 @@ function Projector({ token, admin }: { token: string; admin: boolean }) {
         {!muted && !soundOn && !audioReady() && <span className="rounded bg-black/60 px-2 py-1 text-xs">Click anywhere to enable sound</span>}
         <button onClick={toggleMute} className="h-10 w-10 rounded-full bg-black/60 text-lg" aria-label={muted ? "Unmute" : "Mute"}>{muted ? "🔇" : "🔊"}</button>
         <button onClick={() => void toggleFullscreen()} className="h-10 w-10 rounded-full bg-black/60 text-lg" aria-label="Full screen">⛶</button>
+        {onSignOut && <button onClick={onSignOut} className="h-10 rounded-full bg-black/60 px-3 text-xs">Sign out</button>}
       </div>
       {error && <p className="fixed left-3 top-3 z-30 rounded bg-black/70 px-3 py-1 text-xs text-amber-300" role="status">{error}</p>}
       <span className="sr-only" aria-live="polite">{phase === "countdown" ? `Shuffling, ${count} seconds` : phase === "revealed" ? "Winners revealed" : ""}</span>

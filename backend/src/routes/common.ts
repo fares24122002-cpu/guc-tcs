@@ -8,10 +8,16 @@ import { projectorSecret, verifyProjectorToken } from "../services/projector.js"
 import type { PhotoStorage } from "../services/storage.js";
 
 /** Middleware chains shared by the feature routers. */
-export function guards(env: Env, deps: Deps): { user: RequestHandler[]; admin: RequestHandler[] } {
+export function guards(env: Env, deps: Deps): { user: RequestHandler[]; admin: RequestHandler[]; screen: RequestHandler[] } {
   const limiter = userRateLimit(env.RATE_LIMIT_WINDOW_MS, env.RATE_LIMIT_MAX);
   const auth = requireAuth(deps);
-  return { user: [auth, limiter], admin: [auth, requireRole("admin"), limiter] };
+  return {
+    /** Registering staff and administrators. A presenter account is deliberately not included. */
+    user: [auth, requireRole("admin", "staff"), limiter],
+    admin: [auth, requireRole("admin"), limiter],
+    /** Running the projector: administrators and presenter accounts. */
+    screen: [auth, requireRole("admin", "presenter"), limiter],
+  };
 }
 
 export const PHOTO_TTL_SECONDS = 3600;
@@ -38,7 +44,7 @@ export function parse<T extends z.ZodTypeAny>(schema: T, value: unknown, message
 export const uuid = z.string().uuid("Invalid id.");
 export const boolish = z.union([z.boolean(), z.enum(["true", "false"]).transform((v) => v === "true")]);
 
-/** Read access: a signed-in admin, or a valid read-only projector token (?t=...). */
+/** Read access: a signed-in admin or presenter, or a valid read-only projector token (?t=...). */
 export function adminOrProjectorToken(env: Env, deps: Deps): RequestHandler {
   const secret = projectorSecret(env);
   return (req: Request, res: Response, next: NextFunction) => {
@@ -47,7 +53,7 @@ export function adminOrProjectorToken(env: Env, deps: Deps): RequestHandler {
       if (verifyProjectorToken(secret, t)) return next();
       return next(new HttpError(401, "This projector link has expired. Ask an administrator for a new one."));
     }
-    const chain: RequestHandler[] = [requireAuth(deps), requireRole("admin")];
+    const chain: RequestHandler[] = [requireAuth(deps), requireRole("admin", "presenter")];
     let i = 0;
     const step = (err?: unknown) => {
       if (err) return next(err);

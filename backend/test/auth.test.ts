@@ -166,10 +166,11 @@ describe("staff management permissions", () => {
     expect((await login(app, "omar", "omar-password-1")).status).toBe(200);
   });
 
-  it("ignores any attempt to create an administrator through the API", async () => {
+  it("refuses any attempt to create an administrator through the API", async () => {
     const res = await request(app).post("/api/staff").set(adminAuth).send({ full_name: "Evil Admin", username: "evil", password: "evil-password-1", role: "admin" });
-    expect(res.status).toBe(201);
-    expect(res.body.staff.role).toBe("staff");
+    expect(res.status).toBe(400);
+    const list = await request(app).get("/api/staff").set(adminAuth);
+    expect(list.body.staff.some((x: { username: string }) => x.username === "evil")).toBe(false);
   });
 
   it("validates input and rejects duplicate usernames", async () => {

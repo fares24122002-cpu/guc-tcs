@@ -65,6 +65,8 @@ export default function App() {
         />
       );
     }
+    // A presenter account only ever sees the projector screen.
+    if (user.role === "presenter") return <Navigate to="/present" replace />;
     const home = user.role === "admin" ? <Dashboard /> : <Navigate to="/register" replace />;
     return (
       <AuthProvider value={{ user, signOut: () => void signOut().finally(() => setUser(null)) }}>
